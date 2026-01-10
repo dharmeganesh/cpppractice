@@ -1,0 +1,84 @@
+#include <iostream>
+#include<condition_variable>
+#include<mutex>
+#include<functional>
+#include<future>
+#include<vector>
+#include<queue>
+#include<thread>
+
+using namespace std;
+class ThreadPool
+{
+private:
+    condition_variable m_cv;
+    mutex m_lock;
+    std::queue<std::function<void()>> m_tasks;
+    std::vector<thread> m_pool;
+    bool m_bquit = false;
+public:
+    ThreadPool(int size)
+    {
+        for(int i = 0;i<size;i++)
+        {
+            m_pool.emplace_back([this](){
+                
+                while(1)
+                {
+                    std::unique_lock<mutex> ul(m_lock);
+                    m_cv.wait(ul,[this](){return m_bquit || !m_tasks.empty();});
+                    if(m_bquit && m_tasks.empty())
+                        return;
+                    auto task = m_tasks.front();
+                    m_tasks.pop();
+                    ul.unlock();
+                    task();
+                }
+            });
+        }
+    }
+    ~ThreadPool()
+    {
+        {
+            std::unique_lock<mutex> ul(m_lock);        
+            m_bquit = true;
+        }
+        m_cv.notify_all();
+        for(auto& mt : m_pool)
+        {
+            mt.join();
+        }
+    }
+    template<typename F,typename... Args>
+    auto enqueue(F && f,Args... args) -> std::future<decltype(f(args...))>
+    {
+     
+     using returntype = decltype(f(args...));
+     auto task = std::make_shared<std::packaged_task<returntype()>>(std::bind(std::forward<F>(f),std::forward<Args>(args)...));
+     auto res = task->get_future();
+     {
+        unique_lock<mutex> ul(mutex);
+        if(m_bquit) throw runtime_error("Enqueu on stopeed pool");
+        m_tasks.emplace([task](){(*task)();});
+     }
+     m_cv.notify_one();
+     return res;    
+    }
+};
+int main()
+{
+    int maxThread = std::thread::hardware_concurrency();
+    
+    ThreadPool t(maxThread);
+    std::vector<future<int>> m_result;
+    for(int i = 0; i<maxThread;++i)
+    {
+        m_result.emplace_back(t.enqueue([i](){ return (i*i);}));
+    }
+    m_result.emplace_back(t.enqueue([](){return 1000;}));
+    for(auto &a : m_result)
+    {
+        std::cout<<"Value is " << a.get() << endl;
+    }
+    return 0;
+}

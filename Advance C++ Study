@@ -1,0 +1,96 @@
+Advance C++ Study
+
+
+Type Decuction : Changing the type at once place automatically propogates through type deduction to other locations.
+
+Disadvantage : Code difficult to understand as compiler knows the type not human.
+
+Type Deduction Keywords :
+1. auto :
+
+Its an kind of template type deductions.
+So the only real difference between auto and template type deduction is that auto
+assumes that a braced initializer represents a std::initializer_list, but template
+type deduction doesn’t.
+
+
+auto x3 = {25} ; // X3 is a type of initializer_list<int> with 1 element
+
+2. decltype
+
+In C++11, perhaps the primary use for decltype is declaring function templates
+where the function’s return type depends on its parameter types
+
+3. typeid(x).name -> Its good it but does not give const or reference types
+
+
+
+
+Universal Initialization for braces because other might truncate the value
+
+double x, y, z;
+…
+int sum1{ x + y + z }; // error! sum of doubles may
+ // not be expressible as int
+Initialization using parentheses and “=” doesn’t check for narrowing conversions,
+because that could break too much legacy code:
+int sum2(x + y + z); // okay (value of expression
+ // truncated to an int)
+int sum3 = x + y + z; // ditto
+
+
+
+Typedef (c++ 98)
+
+edef
+ std::unique_ptr<std::unordered_map<std::string, std::string>>
+ UPtrMapSS;
+
+
+
+alias declarations:(c++11)
+using UPtrMapSS =
+ std::unique_ptr<std::unordered_map<std::string, std::string>>;
+
+
+
+template<typename T> // MyAllocList<T>
+using MyAllocList = std::list<T, MyAlloc<T>>; // is synonym for
+ // std::list<T,
+// MyAlloc<T>>
+MyAllocList<Widget> lw; // client code
+
+With a typedef, you pretty much have to create the cake from scratch:
+template<typename T> // MyAllocList<T>::type
+struct MyAllocList { // is synonym for
+ typedef std::list<T, MyAlloc<T>> type; // std::list<T,
+}; // MyAlloc<T>>
+MyAllocList<Widget>::type lw; // client code
+
+
+
+
+the reasons why a raw pointer is hard to love:
+1. Its declaration doesn’t indicate whether it points to a single object or to an array.
+2. Its declaration reveals nothing about whether you should destroy what it points
+to when you’re done using it, i.e., if the pointer owns the thing it points to.
+3. If you determine that you should destroy what the pointer points to, there’s no
+way to tell how. Should you use delete, or is there a different destruction mech
+anism (e.g., a dedicated destruction function the pointer should be passed to)?
+4. If you manage to find out that delete is the way to go, Reason 1 means it may
+not be possible to know whether to use the single-object form (“delete”) or the
+array form (“delete []”). If you use the wrong form, results are undefined.
+5. Assuming you ascertain that the pointer owns what it points to and you discover
+how to destroy it, it’s difficult to ensure that you perform the destruction exactly
+once along every path in your code (including those due to exceptions). Missing a
+path leads to resource leaks, and doing the destruction more than once leads to
+undefined behavior.
+6. There’s typically no way to tell if the pointer dangles, i.e., points to memory that
+no longer holds the object the pointer is supposed to point to. Dangling pointers
+arise when objects are destroyed while pointers still point to them.
+
+
+Unique Pointer :
+
+1. Unique Pointer always owns what it points too.
+2. 

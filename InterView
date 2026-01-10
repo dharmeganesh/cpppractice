@@ -1,0 +1,54 @@
+C++ Interview :
+
+1. Reference dont have memory address
+2. Reference cant be null
+3. Pointer can be null
+4. You cant reassign reference
+5. Arithmatic operations are not allowed in ref and indirection is also not applicable in ref
+6. you can create empty reference you need to give name while declaring it
+
+
+
+#include <iostream>
+
+
+
+
+
+int myAtoI(std::string number)
+{
+    int result = 0;
+    int i=0;
+    for(;i < number.size();i++)
+    {
+        result =  result*10 + number[i] - '0';
+    }
+
+    return result;
+}
+
+std::string myItoS(int n)
+{
+    std::string number;
+    while(n > 0)
+    {
+        int digit = n % 10;
+        number+= digit + '0';
+        n = n/10;
+    }
+    std::cout<<"Reverse Number is " << number << std::endl;
+    return number;
+}
+
+int main()
+{
+    std::cout<<"Hello World";
+    std::string myNum = "1234";
+    std::cout<<myAtoI(myNum)<<std::endl;
+    int mn = 1234;
+    std::cout<<myItoS(mn)<<std::endl;
+    return 0;
+}
+
+
+Const cast 

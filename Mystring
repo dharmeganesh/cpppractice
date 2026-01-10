@@ -1,0 +1,132 @@
+#include <iostream>
+#include<cstring>
+
+using namespace std;
+class Mystring
+{
+private:
+
+    char *_ptr;
+    size_t m_size;
+
+public:
+    Mystring() : _ptr(nullptr),m_size(0)
+    {
+        
+    }
+    ~Mystring()
+    {
+        delete[] ptr;
+        ptr = nullptr;
+    }
+    Mystring(const char* data)
+    {
+        cout<<"Mystring(const char* data)" << endl;
+        int size = std::strlen(data);
+        _ptr = new char[size+1]; // +1 for null character \0
+        strcpy(_ptr,data);
+        m_size = size;
+    }
+    Mystring(char* c)
+    {
+        cout<<"Mystring(char* c)" << endl;
+        int size = std::strlen(c);
+        _ptr = new char[size+1];
+        strcpy(_ptr,c);
+        m_size = size;        
+    }
+    Mystring(char c)
+    {
+        cout<<"Mystring(char c)" << endl;
+        _ptr = new char[2];
+        _ptr[0] = c;
+        _ptr[1] = '\0';
+        m_size = 1;
+    }
+    Mystring(const Mystring &other)
+    {
+        cout<<"Mystring(const Mystring &other)" << endl;
+        if( this == &other)
+        {
+            cout<<"Self copy detected" << endl;
+            return;
+        }
+        char *temp = new char[other.m_size + 1];
+        strcpy(temp,other._ptr);
+        _ptr = temp;
+        m_size = other.m_size;
+    }
+    Mystring(Mystring &&other) noexcept
+    {
+        cout<<"Mystring(const Mystring &&other)" << endl;
+        _ptr = other._ptr;
+        m_size = other.m_size;
+        other._ptr = nullptr;
+        other.m_size = 0;
+    }
+    Mystring& operator = (const Mystring & other)
+    {
+        cout<<"Mystring& operator = (const Mystring & other)" << endl;
+        if( this == &other)
+        {
+            cout<<"Self copy Assignment detected" << endl;
+            return *this;
+        }
+        char *temp = new char[other.m_size+1];
+        strcpy(temp,other._ptr);
+        if(_ptr)
+            delete[] _ptr;
+        _ptr = temp;
+        m_size = other.m_size;
+        return *this;
+    }
+    Mystring& operator = (Mystring &&other) noexcept
+    {
+        cout<<"Mystring& operator = (Mystring &&other) noexcept" << endl;
+        if( this == &other)
+        {
+            cout<<"Self move Assignment detected" << endl;
+            return *this;
+        }
+        if(_ptr)
+            delete[] _ptr;
+        _ptr = other._ptr;
+        m_size = other.m_size;
+        other._ptr = nullptr;
+        other.m_size = 0;
+        return *this;
+    }
+    const size_t size() const
+    {
+        return m_size;
+    }
+    friend ostream& operator << (ostream &other,const Mystring& str)
+    {
+        other<<str._ptr;
+        return other;
+    }
+    char& operator [](int index)
+    {
+        return _ptr[index];
+    }
+    char& at(int index)
+    {
+        if(m_size > index)
+            return _ptr[index];
+        throw  std::out_of_range("Index out of bound");
+    }
+};
+int main()
+{
+    Mystring s = "Hello";
+    Mystring s2 = s;
+    Mystring s3;
+    s= "I have another work to do ";
+    s3 = s2;
+    std::cout <<" Welcome "<<s<< "Copied string " << s2<< std::endl;
+    std::cout<<"character at " << s[2] <<"Size = "<< s.size() << endl;
+
+    Mystring s4(std::move(Mystring("Kuch to gadbad hai daya")));
+
+    return 0;
+}

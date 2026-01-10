@@ -1,0 +1,228 @@
+Design Pattern :
+Solution to common recurring problem 
+
+FDP : Factory Design Pattern 
+
+Class Toy
+{
+	preparetoy() = 0;
+	createtoy()=0;
+	showtoy() = 0;
+}
+
+Toy -> car,Plane,Bike
+Factory -> createToy this will create object for us based on input or conditions.
+
+We create object without showing any logic to client.
+we get benifit of virtual constructor
+
+
+Abstract Factory Design Pattern :
+- Show interface not implementation.
+- system need to be configured with one of the multiple family of objects.
+
+class IGraphicsFactory {
+public:
+    virtual ~IGraphicsFactory() = default;
+    virtual std::unique_ptr<Buffer> createBuffer() = 0;
+    virtual std::unique_ptr<Texture> createTexture() = 0;
+    virtual std::unique_ptr<Shader> createShader() = 0;
+};
+
+class DirectXFactory : public IGraphicsFactory {
+public:
+    std::unique_ptr<Buffer> createBuffer() override { return std::make_unique<DXBuffer>(); }
+    std::unique_ptr<Texture> createTexture() override { return std::make_unique<DXTexture>(); }
+    std::unique_ptr<Shader> createShader() override { return std::make_unique<DXShader>(); }
+};
+
+class VulkanFactory : public IGraphicsFactory {
+public:
+    std::unique_ptr<Buffer> createBuffer() override { return std::make_unique<VKBuffer>(); }
+    // ... creates VKTexture and VKShader
+};
+
+
+
+
+Event broadaster / observer design pattern
+
+
+#include <iostream>
+#include<vector>
+#include<atomic>
+#include<mutex>
+
+using namespace std;
+
+class EventListner
+{
+public:
+    virtual void onEventAdded() = 0;
+    virtual void onEventRemoved() = 0;
+    virtual void onEvent() = 0;
+};
+
+class EventBroadCaster
+{
+private:
+    static mutex mlock;
+    std::atomic<EventBroadCaster*> m_instance;
+    EventBroadCaster() = default;
+    std::vector<EventListner*> m_listner;
+    
+public:
+    ~EventBroadCaster()
+    {
+        
+    }
+    EventBroadCaster(const EventBroadCaster& other) = delete;
+    EventBroadCaster& operator = (const EventBroadCaster& other) = delete;
+    
+    static EventBroadCaster* getInstance()
+    {
+        EventBroadCaster* temp = m_instance.load(std::memory_order_acquire);
+        if(temp == nullptr)
+        {
+            unique_lock<mutex> ul(mlock);
+            temp = m_instance.load(std::memory_order_relaxed);
+            if(temp == nulllptr)
+            {
+                temp = new EventBroadCaster();
+                m_instance.store(temp,std::memory_order_released);
+            }
+        }
+        return temp;
+    }
+    
+    void addListner(EventListner * listner)
+    {
+        std::lock_guard<std::mutex> lock(mlock);
+        auto it = m_listner.find(listner);
+        if(it == m_listner.end())
+        {
+            m_listner.emplace_back(listner);
+        }
+        else
+        {
+            std::cout<<"Listner is already registerd with us" << endl;
+        }
+    }
+    
+    void removeListner(EventListner * listner)
+    {
+         std::lock_guard<std::mutex> lock(mlock);
+        auto it = m_listner.find(listner);
+        if(it != m_listner.end())
+        {
+            m_listner.remove(it);
+        }
+        else
+        {
+            std::cout<<"Listner is already Removed" << endl;
+        }
+    }
+    
+    void BroadCastEvent()
+    {
+        for(auto & ev : m_listner)
+        {
+            ev->onEvent();
+        }
+    }
+};
+atomic<EventListner*> EventBroadCaster::m_instance = nullptr;
+mutex EventBroadCaster::mlock;
+class Bullet : public EventListner
+{
+private :
+  int bullet;
+  int speed;
+  
+public:
+  
+  Bullet() : bullet(0),speed(0)
+  {
+      EventBroadCaster::getInstance()->addListner(this);
+  }
+  
+  ~Bullet()
+  {
+      EventBroadCaster::getInstance()->removeListner(this);
+  }
+  
+  void fire()
+  {
+      std::cout<<"Bullet fired" << endl;
+      EventBroadCaster::getInstance()->BroadCastEvent();
+  }
+  
+  void onEvent()
+  {
+      std::cout<<"Event happened" << endl;
+  }
+  
+};
+int main()
+{
+    Bullet b;
+    b.fire();
+
+    return 0;
+}
+
+
+Protot -Type :
+
+
+#include <iostream>
+#include <memory>
+
+// The Prototype Interface
+class Enemy {
+public:
+    virtual ~Enemy() = default;
+    
+    // The "Magic" method
+    virtual std::unique_ptr<Enemy> clone() const = 0;
+    
+    virtual void attack() const = 0;
+};
+
+// A Concrete Prototype
+class Zombie : public Enemy {
+private:
+    int health;
+    std::string texture;
+
+public:
+    Zombie(int h, std::string t) : health(h), texture(t) {}
+
+    // Clone implementation: uses the copy constructor
+    std::unique_ptr<Enemy> clone() const override {
+        return std::make_unique<Zombie>(*this);
+    }
+
+    void attack() const override {
+        std::cout << "Zombie attacks with " << health << " HP!\n";
+    }
+};
+
+
+class Spawner {
+public:
+    static std::unique_ptr<Enemy> spawn(const Enemy& prototype) {
+        return prototype.clone();
+    }
+};
+
+int main() {
+    Zombie masterZombie(100, "zombie_texture.png");
+
+    // We don't need to know it's a "Zombie", just that it's an "Enemy"
+    auto z1 = Spawner::spawn(masterZombie);
+    auto z2 = Spawner::spawn(masterZombie);
+
+    z1->attack();
+    z2->attack();
+}

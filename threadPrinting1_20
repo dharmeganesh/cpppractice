@@ -1,0 +1,44 @@
+#include <iostream>
+#include<mutex>
+#include<atomic>
+#include<thread>
+#include<condition_variable>
+#include<vector>
+
+using namespace std;
+
+int global;
+std::mutex m_lock;
+std::condition_variable cv;
+
+void thread1(int threadid,int maxthread)
+{
+    while(1)
+    {
+        unique_lock<std::mutex> ulock(m_lock);
+        cv.wait(ulock,[threadid,maxthread](){return global >=20 || ((global%maxthread) == threadid);});
+        if(global>= 20)
+        {
+            cv.notify_all();            
+            return;
+        }
+        std::cout<<"Printing thread " << threadid << " "<<global<<endl;
+        global++;
+        cv.notify_all();
+
+    }
+}
+int main()
+{
+    int maxthread = thread::hardware_concurrency();
+    vector<thread> v1;
+    for(int i = 0; i< maxthread ; i++)
+    {
+        v1.emplace_back(thread1,i,maxthread);
+    }
+    for(auto& myth : v1 )
+    {
+        myth.join();
+    }
+    return 0;
+}

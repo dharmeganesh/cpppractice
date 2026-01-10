@@ -1,0 +1,218 @@
+#include <stdio.h>
+#include<iostream>
+#include<memory>
+#include<atomic>
+
+using namespace std;
+
+template<typename T> class WeakPtr;
+template<typename T> class SharedPtr;
+
+    struct Control_Block
+    {
+        std::atomic<int> ref_count;
+        std::atomic<int> weak_count;
+        Control_Block() : ref_count(1),weak_count(0)
+        {
+            
+        }
+    };
+template<typename T>
+class SharedPtr
+{
+    friend class WeakPtr<T> ;
+private:
+
+    T* _ptr;
+    Control_Block *cb;
+    
+    void release()
+    {
+        if(cb)
+        {
+            if(cb->ref_count.fetch_sub(1) == 1)
+            {
+                delete _ptr;
+                delete cb;
+                _ptr = nullptr;
+                cb = nullptr;
+                cout<<"Resource destroyed";
+            }
+        }
+    }
+public:
+    explicit SharedPtr(T* ptr = nullptr) : _ptr(ptr),cb(nullptr)
+    {
+        if(_ptr)
+            cb = new Control_Block();
+    }
+    SharedPtr(const SharedPtr<T> &other)
+    {
+        _ptr = other._ptr;
+        cb = other.cb;
+        if(cb)
+            cb->ref_count.fetch_add(1);
+    }
+    ~SharedPtr()
+    {
+        release();
+    }
+    SharedPtr(SharedPtr<T> &&other) noexcept : _ptr(other._ptr),cb(other.cb)
+    {
+        // Count dont need to increment as we are just moving
+        other._ptr = nullptr;
+        other.cb = nullptr;
+    }
+    SharedPtr& operator = (const SharedPtr<T> &other)
+    {
+        if(this != &other)
+        {
+            release();
+            _ptr = other._ptr;
+            cb = other.cb;
+            if(cb)
+                cb->ref_count.fetch_add(1);
+        }
+        return *this;
+    }
+    SharedPtr& operator = (SharedPtr<T> &&other) noexcept 
+    {
+        if(this != &other)
+        {
+            release();
+            _ptr = other._ptr;
+            other._ptr = nullptr;
+            cb = other.cb;
+            other.cb = nullptr;
+        }
+        return *this;
+    }
+    SharedPtr(const WeakPtr<T> &other);
+    int use_count() const
+    {
+        if(cb)
+            return cb->ref_count.load();
+        return 0;
+    }
+    T& operator *() const
+    {
+        return *_ptr;
+    }
+    T* operator ->() const
+    {
+        return _ptr;
+    }
+    T* getPtr() const
+    {
+        return _ptr;
+    }
+};
+
+template<typename T>
+class WeakPtr
+{
+private:
+    void release()
+    {
+        if(cb)
+        {
+            if(cb->weak_count.fetch_sub(1) == 1)
+            {
+                if(cb->ref_count.load() == 0)
+                {
+                    delete cb;
+                    cb = nullptr;
+                    cout<<"Control blocked removed";
+                }
+            }
+        }
+    }
+    T* _ptr;
+    Control_Block* cb;
+public:
+    WeakPtr() : _ptr(nullptr) , cb(nullptr)
+    {
+        
+    }
+    WeakPtr(SharedPtr<T> &other) : _ptr(other._ptr),cb(other.cb)
+    {
+        if(cb)
+            cb->weak_count.fetch_add(1);
+    }
+    WeakPtr(const WeakPtr<T> &other) : _ptr(other._ptr),cb(other.cb)
+    {
+        if(cb)
+            cb->weak_count.fetch_add(1);
+    }
+    WeakPtr& operator = (const SharedPtr<T> &other)
+    {
+        release();
+        _ptr = other._ptr;
+        cb = other.cb;
+        if(cb)
+            cb->weak_count.fetch_add(1);
+    }
+    WeakPtr& operator = ( WeakPtr<T> && other)
+    {
+        release();
+        _ptr = other._ptr;
+        cb = other.cb;
+        other._ptr = nullptr;
+        other.cb = nullptr;        
+    }
+    bool expired()
+    {
+        if(cb)
+            return cb->ref_count.load() == 0;
+        else 
+            return true;
+    }
+    SharedPtr<T> lock()
+    {
+        if(expired())
+        {
+           return SharedPtr<T>(nullptr); 
+        }
+        return SharedPtr<T>(*this);
+    }
+    
+};
+    template<typename T>
+    SharedPtr<T> :: SharedPtr(const WeakPtr<T> &other) : _ptr(other._ptr),cb(other.cb)
+    {
+        if(cb && cb->ref_count.load() > 0)
+        {
+            cb->ref_count.fetch_add(1);
+        }
+        else
+        {
+            _ptr = nullptr;
+            cb = nullptr;
+        }
+    }
+
+int main()
+{
+    SharedPtr<int> m_shared(new int(25));
+    SharedPtr<int>m_shared1(m_shared);
+    SharedPtr<int>m_shared2(m_shared);
+    SharedPtr<int>m_shared3(new int(2));
+    m_shared3 = std::move(m_shared);
+    std::cout<<" m_shared3 = " << m_shared3.use_count() <<endl;
+    std::cout<<" m_shared = " << m_shared.use_count() <<endl;
+    std::cout<<" m_shared2 = " << m_shared2.use_count() <<endl;
+    WeakPtr<int> myWeak = m_shared;
+    if(myWeak.expired())
+        cout<<"Its expired" << endl;
+    else
+        cout<<"Its Not expired" << endl;
+    // myShared_ptr<int> m_ptr(new int(25));
+    // myShared_ptr<int> m_ptr2(m_ptr);
+    // myShared_ptr<int> m_ptr3(m_ptr);
+    // myShared_ptr<int> m_ptr4(m_ptr);
+    // m_ptr4 = std::move(m_ptr);
+    // // std::cout<<"Value is " << *m_ptr << endl;
+    //  std::cout<<"Value using pointer" << m_ptr2.getCount() << m_ptr4.getCount()<<endl;
+
+    return 0;
+}

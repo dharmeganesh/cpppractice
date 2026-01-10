@@ -1,0 +1,411 @@
+/******************************************************************************
+
+Welcome to GDB Online.
+  GDB online is an online compiler and debugger tool for C, C++, Python, PHP, Ruby, 
+  C#, OCaml, VB, Perl, Swift, Prolog, Javascript, Pascal, COBOL, HTML, CSS, JS
+  Code, Compile, Run and Debug online from anywhere in world.
+
+*******************************************************************************/
+#include <stdio.h>
+#include<iostream>
+#include<vector>
+using namespace std;
+
+/*  
+std::vector<> : This needs to be templated class. Following methods needs to be implemented as part of vector
+vector<>( int size,int initial value) // constructor
+vector(int size) ; // constructor = done
+~vector<>() ; // destructor = done
+void push_back(T value); = done
+shrink_to_fit(); = done
+int capacity() ; //  = done
+vector<T> operator [](int value); = done
+vector<> vector<>(const vector<T> &other); // copy constructor = done
+vector<T>& operator = (const vector<T> &other); //copy assignment operatpr = done
+vector<T>& operatpr = (const vector<T> && other);noexcept // Move assignment operator = done
+vector<T>& vector<T>(const vector<T> && other);  noexcept // move constructor = done
+vector<int> vector<T> (const initializer_list<T> other) // braces initialization handling = done
+
+Make sure to copy old value to temporary somewhere
+Iterator creation as well
+Take care of constexpr as well
+take care of move without noexcept and check how it behaves
+check vector with some user define class and have both move with exception safety and 1 without
+Verify copy and move logic dont declare any one of them and check behaviour also check if you declare destructor no other but move check behaviour
+*/
+
+template<typename T>
+class MyVector
+{
+    private :
+        T *_ptr;
+        int m_size;
+        int m_capacity;
+    
+    public:
+    
+    MyVector() : m_size(0),m_capacity(0),_ptr(nullptr)
+    {
+        cout<<" MyVector()" << endl;
+    }
+    
+    // MyVector(int size ,const T dInitialValue) : m_size(size),m_capacity(size)
+    // {
+    //     T *temp = static_cast<T*>(operator new[](m_capacity*sizeof(T)));
+    //     _ptr = temp;
+    //     for(int i =0;i<m_capacity;i++)
+    //     {
+    //         new(temp++)T(dInitialValue);
+    //     }
+    // }
+    
+    MyVector(int size) : m_size(size),m_capacity(size)
+    {
+        _ptr = new T[m_capacity];
+    }
+    MyVector ( std::initializer_list<T> initlist) : m_size(initlist.size()),m_capacity(initlist.size())
+    {
+        _ptr = new T[m_capacity];
+        std::copy(initlist.begin(),initlist.end(),_ptr);
+    }
+    MyVector(const MyVector &other) // copy constructor
+    {
+        std::cout<<"Using copy constructor" << endl;
+        T *temp = new T[other.m_capacity];
+        for(int i =0;i<other.m_capacity;i++)
+        {
+            temp[i] = other._ptr[i];
+        }
+        _ptr = temp;
+        m_capacity = other.m_capacity;
+        m_size = other.m_size;
+    }
+    MyVector(MyVector &&other) noexcept// move constructor
+    {
+        std::cout<<"Using move constructor" << endl;
+        _ptr = other._ptr;
+        m_capacity = other.m_capacity;
+        m_size = other.m_size;
+        other._ptr = nullptr;
+        other.m_size = 0;
+        other.m_capacity = 0;
+    }
+        
+    MyVector& operator = (const MyVector &other) // assignment operator
+    {
+        std::cout<<"Copy assignment operator" << endl;            
+        if(this == &other)
+        {
+            std::cout<<"Self Copy assignment Detected" << endl;
+            return *this;
+        }
+        T *temp = new T[other.m_capacity];
+        for(int i =0;i<other.m_size;i++)
+        {
+            temp[i] = std::move(other._ptr[i]);
+        }
+        if(_ptr)
+            delete[] _ptr;
+        _ptr = temp;
+        m_size = other.m_size;
+        m_capacity = other.m_capacity;
+        return *this;
+    }
+    
+    MyVector& operator = (MyVector &&other) noexcept // Move assignment operator
+    {
+        std::cout<<"Move assignment operator" << endl;        
+        if(this == &other)
+        {
+            std::cout<<"Self Move assignment Detected" << endl;
+            return *this;
+        }
+        if(_ptr)
+            delete [] _ptr;
+        _ptr = other._ptr;
+        m_capacity = other.m_capacity;
+        m_size = other.m_size;
+        other._ptr = nullptr;
+        other.m_size = 0;
+        other.m_capacity = 0;
+        return *this;
+    }
+        
+    void push_back(const T& value)
+    {
+        if(m_size == m_capacity)
+        {
+            m_capacity = std::max(m_capacity*2,1);
+            T *temp = new T[m_capacity];
+            for(int i =0;i<m_size;i++)
+            {
+                temp[i] = std::move(_ptr[i]);
+            }
+            if(_ptr)
+                delete[] _ptr;
+            std::swap(this->_ptr,temp);
+        }
+        _ptr[m_size++] = value;
+    }
+
+    void push_back(T&& value)
+    {
+        if(m_size == m_capacity)
+        {
+            m_capacity = std::max(m_capacity*2,1);
+            T *temp = new T[m_capacity];
+            for(int i =0;i<m_size;i++)
+            {
+                temp[i] = std::move(_ptr[i]);
+            }
+            if(_ptr)
+                delete[] _ptr;
+            std::swap(this->_ptr,temp);
+        }
+        _ptr[m_size++] = value;
+    }    
+    void reserve(int size)
+    {
+        if(m_capacity < size)
+        {
+            m_capacity = std::max(m_capacity*2,1);
+            T* temp = new T[m_capacity];
+            for(int i=0;i<m_size;i++)
+            {
+                temp[i] = std::move(_ptr[i]);
+            }
+            if(_ptr)
+                delete[] _ptr;
+            _ptr = temp;
+        }
+    }
+    void pop_back()
+    {
+        if(m_size > 0)
+            m_size--;
+    }
+    void shrink_to_fit()
+    {
+        if(m_capacity != m_size)
+        {
+            m_capacity = std::max(m_size,1);
+            T* temp = new T[m_capacity];
+            for(int i=0;i<m_size;i++)
+            {
+                temp[i] = _ptr[i];
+            }
+            if(_ptr)
+                delete[] _ptr;            
+            _ptr = temp;
+        }
+    }
+    T& operator [] (int location)
+    {
+        return _ptr[location];
+    }
+    class Iterator;
+    using iterator = Iterator;
+    const iterator begin() const
+    {
+       return  iterator(_ptr);
+    }
+    const iterator end() const
+    {
+        return iterator(_ptr + m_size);
+    }
+    iterator begin()
+    {
+       return  iterator(_ptr);
+    }
+    iterator end()
+    {
+        return iterator(_ptr + m_size);
+    }
+    ~MyVector()
+    {
+        if(_ptr != nullptr)
+        {
+            delete[] _ptr;
+            _ptr = nullptr;
+        }
+        // for(int i =0;i<m_capacity;i++)
+        // {
+        //     _ptr[i].~T();
+        // }
+        // operator delete[](_ptr);
+    }
+    T& at(int index)
+    {
+        if(m_size > index)
+        {
+            return _ptr[index];
+        }
+        throw std::out_of_range("Index out of bounds");
+    }
+    size_t capacity() const{
+        return m_capacity;
+    }
+    size_t size() const{
+        return m_size;
+    }
+    class Iterator
+    {
+        private :
+            T* m_it_ptr;
+        public:
+        Iterator (T* ptr)
+        {
+            m_it_ptr = ptr;
+        }
+        Iterator& operator ++()
+        {
+            m_it_ptr++;
+            return *this;
+        }
+        Iterator& operator --()
+        {
+            m_it_ptr--;
+            return *this;
+        }
+        Iterator& operator ++(int)
+        {
+            Iterator temp = *this;
+            m_it_ptr++;
+            return temp;
+        }
+        Iterator& operator --(int)
+        {
+            Iterator temp = *this;
+            m_it_ptr--;
+            return temp;
+        }
+        Iterator begin()
+        {
+            return Iterator(_ptr);
+        }
+        Iterator end()
+        {
+          return Iterator(_ptr+m_size); 
+        }
+        Iterator operator -(int position) const
+        {
+           return Iterator(m_it_ptr - position); 
+        }
+        Iterator operator +(int position) const
+        {
+           return Iterator(m_it_ptr + position);             
+        }
+        T& operator *() const
+        {
+            return *m_it_ptr;
+        }
+        T* operator ->() const
+        {
+            return m_it_ptr;
+        }
+
+        bool operator !=(const Iterator &other) const
+        {
+            return m_it_ptr != other.m_it_ptr;
+        }
+        bool operator == (const Iterator &other) const 
+        {
+            return m_it_ptr == other.m_it_ptr;            
+        }
+    };
+};
+class A
+{
+    private :
+    int a =0;
+    public:
+    A(int mya) :a(mya)
+    {
+        std::cout <<"A(int)"<< std::endl;
+    }
+    A(const A &other) // copy constructor
+    {
+        std::cout <<"A(const A &other)"<< std::endl;
+    }
+    
+    A& operator = (const A &other) // copy assignment
+    {
+        std::cout <<"A(const A &other)"<< std::endl;
+        return *this;
+    }
+    A(const A && other) noexcept // move constructor
+    {
+        std::cout <<"A(const A &&other)"<< std::endl;
+    }
+    A& operator = (const A &&other) // move assignment
+    {
+        std::cout <<"A(const A &&other)"<< std::endl;
+        return *this;
+    }
+    A()
+    {
+        std::cout <<"A()"<< std::endl;
+    }
+    ~A()
+    {
+        std::cout <<"~A()"<< std::endl;
+    }
+    friend std::ostream& operator <<(std::ostream &other,const A &obj)
+    {
+        other<<"Value is " << obj.a<<endl;
+        return other;
+    }
+};
+int main()
+{
+    MyVector<int> ganesh;
+    for(int i =0;i<3;i++)
+    {
+        ganesh.push_back(25);
+        std::cout <<"Value Of Array "<< ganesh[i]  <<"capacity"<< ganesh.capacity()<<endl;
+    }
+    MyVector<int> priya(ganesh);
+    for(int i =0;i<ganesh.size();i++)
+    {
+        priya.push_back(30);
+    }
+    for(int i =0;i<priya.size();i++)
+    {
+        std::cout <<"Value Of Priya Array "<< priya[i]  <<"capacity"<< priya.capacity()<<endl;
+    }
+    ganesh = std::move(priya);
+    ganesh.pop_back();
+    ganesh.push_back(50);
+    for(int i =0;i<ganesh.size();i++)
+    {
+        std::cout <<"Value Of Ganesh Array After assignment"<< ganesh[i]  <<"capacity"<< ganesh.capacity()<<endl;
+    }
+    MyVector<int> initlist = {1,2,3,4,5,6,8,7};
+    for(int i =0;i<initlist.size();i++)
+    {
+        std::cout<<initlist[i]<<endl;
+    }
+    for(const auto i : initlist )
+    {
+        std::cout<<"Value using begin and end" << i<<endl;
+    }
+    try{
+    std::cout <<"Value at"<<initlist.at(9);
+    }
+    catch(const exception &ex)
+    {
+        std::cout<<"Value at throw ex " << ex.what() <<endl;        
+    }
+
+    vector<A> myvec;
+    myvec.push_back(A(30));
+    myvec.push_back(A(30));
+    
+    MyVector<A> mya;
+    mya.push_back(A(25));
+    // mya.push_back(A(30));
+    // mya.push_back(A(35));
+    // mya.push_back(A(40));
+    
+    return 0;
+}

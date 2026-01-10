@@ -1,0 +1,288 @@
+C++ Threads :
+
+#include<iostream>
+#include<thread>
+#include<mutex>
+
+using namespace std;
+
+void fun(int z)
+{
+	cout<<"This is global fun" << z;
+}
+class B
+{
+	public:
+	B()
+	{
+
+	}
+	void operator ()(int x)
+	{
+		cout<<"Functor "<<x<<endl;
+	}
+	void myRun(int x)
+	{
+		cout<<"MyRun"<<x<<endl;
+	}
+	void static myStaticRun(int x)
+	{
+		cout<<"myStaticRun"<<x<<endl;
+	}  
+};
+int main()
+{
+	B b;
+	thread t1(fun,40);
+	thread t2(B(),60);
+	thread t3(&B::myRun,&b,50);
+	thread t4(B::myStaticRun,70);
+	t1.join();
+	t2.join();
+	t3.join();
+	t4.join();
+}
+
+
+Join -> joins to main thread
+Calling multiple join will crash program you can check whether its joinable or not using joinable method
+detach -> will detach the thread from main thread so it will run independantly
+
+Detach :
+Detached thread will be suspended once main thread returns
+Double detach is also crash
+
+We should call detach or join else it will terminate the program
+
+Mutex :
+Lock
+Unlock
+try_lock() -> Non Blocking and if mutex owner try lock function behaviour will be undefined or might be deadlock as well you can use recursive mutex
+recursive_mutex -> same thread can call lock multiple time
+
+std::try_lock  -> it willl try to lock multiple mutex
+std::time mutex is blocked till timeout or lock is acquired and returns true if success else false
+lock
+try lock
+try lock for
+try lock unitil
+
+
+
+#include<iostream>
+#include<thread>
+#include<mutex>
+
+using namespace std;
+std::recursive_mutex m;
+int buffer = 0;
+void PrintEven(int num)
+{
+     if(num < 0)
+        return;
+         m.lock();
+     if((num%2)==0)
+     {
+
+         buffer++;
+         cout<<"Printing Even "<<num<<endl;
+     }
+         PrintEven(num--);
+         m.unlock();
+    //this_thread::sleep_for(chrono::milliseconds(500));
+}
+void PrintOdd(int num)
+{
+        if(num < 0)
+        return;
+        
+        m.lock();
+        
+        if( (num%2) !=0)
+        {
+
+             buffer++;
+            cout<<"Printing ODD "<<num<<endl;
+
+        }
+            PrintOdd(num--);
+            m.unlock();
+            //this_thread::sleep_for(chrono::milliseconds(500));
+
+}
+int main()
+{
+	thread t1(PrintEven,10);
+	thread t2(PrintOdd,10);
+	t1.join();
+	t2.join();
+	return 0;
+}
+
+
+Std::lock_guard<mutex> myg(m1);
+
+
+the difference isn't just about syntax; it is about Ownership, Flexibility, and Performance Costs.
+
+All of these are RAII wrappers (Resource Acquisition Is Initialization). They ensure that the mutex is automatically released when the wrapper goes out of scope (even if an exception is thrown).
+
+Here is the hierarchy from simplest to most complex.
+
+1. std::lock_guard (The "Brick")
+Introduced: C++11 Cost: Zero Overhead (Same as manual lock/unlock).
+
+This is the "Lite" version. It is extremely strict.
+
+Behavior: It locks the mutex immediately upon construction and unlocks upon destruction.
+
+Limitations:
+
+You cannot manually unlock it in the middle of the scope.
+
+You cannot copy it or move it.
+
+You cannot construct it without locking immediately (no deferred locking).
+
+Use Case: 95% of your code. If you just need to protect a critical section and leave, use this.
+
+C++
+
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    // Locked here
+    buffer++;
+} // Automatically unlocked here
+
+
+2. std::unique_lock (The "Swiss Army Knife")
+Introduced: C++11 Cost: Slight Overhead (Contains a boolean flag + branching in destructor).
+
+This wrapper is much more powerful and flexible. It is called "unique" because it owns the mutex exclusively, but it can transfer that ownership.
+
+Key Features:
+
+Manual Control: You can call .lock() and .unlock() manually inside the scope.
+
+Deferred Locking: You can create the wrapper without locking the mutex yet (std::defer_lock).
+
+Transferable: It is Moveable (can be returned from functions or passed to threads).
+
+Condition Variables: std::condition_variable::wait() requires a unique_lock.
+
+Use Case:
+
+When using std::condition_variable.
+
+When you need to unlock temporarily (e.g., to perform a heavy I/O operation) and then re-lock.
+
+C++
+
+std::unique_lock<std::mutex> lock(mtx, std::defer_lock); // Mutex is NOT locked yet
+
+// ... do some setup ...
+
+lock.lock(); // Now locked
+// ... critical section ...
+lock.unlock(); // Temporarily unlock
+// ... heavy I/O ...
+lock.lock(); // Re-lock
+
+
+3. std::scoped_lock (The "Deadlock Killer")
+Introduced: C++17 Cost: Minimal (Advanced algorithm).
+
+This is the modern replacement for std::lock_guard. It can lock multiple mutexes at once safely.
+
+The Problem: If Thread A locks m1 then m2, and Thread B locks m2 then m1, you get a Deadlock.
+
+The Solution: std::scoped_lock uses a deadlock-avoidance algorithm (like std::lock) to ensure all mutexes are acquired safely without blocking each other indefinitely.
+
+Use Case: Always prefer this over lock_guard in C++17, especially if you need to lock more than one mutex.
+
+C++
+
+// Locks BOTH m1 and m2 safely
+std::scoped_lock lock(mtx1, mtx2); 
+4. std::shared_lock (The "Reader" Lock)
+Introduced: C++14 Cost: Higher (Logic for reader counting).
+
+This is used exclusively with std::shared_mutex (Read-Write Lock).
+
+Behavior: It acquires a Shared (Read) Lock.
+
+Rule:
+
+Multiple threads can hold a shared_lock (Reading) simultaneously.
+
+If a thread wants to Write, it uses unique_lock (Exclusive), which blocks all readers.
+
+Use Case: Caches or lookup tables where reads are frequent (99%) and writes are rare (1%).
+
+C++
+
+std::shared_mutex rw_mtx;
+
+void reader() {
+
+
+
+
+
+
+/******************************************************************************
+
+                              Online C++ Compiler.
+               Code, Compile, Run and Debug C++ program online.
+Write your code in this editor and press "Run" button to compile and execute it.
+
+*******************************************************************************/
+
+#include<iostream>
+#include<thread>
+#include<mutex>
+#include<condition_variable>
+using namespace std;
+std::mutex m;
+std::condition_variable cv;
+int buffer = 0;
+bool evenPrintingDone = false;
+void PrintEven(int num)
+{
+    std::unique_lock<mutex> ul(m);
+
+    for(int i =0 ; i<num;i++)
+    {
+     if((i%2)==0)
+     {
+        cv.wait(ul,[]{return !evenPrintingDone;});
+        cout<<"Printing Even "<<i<<endl;
+        evenPrintingDone = true;
+        cv.notify_one();
+     }
+    }
+
+}
+void PrintOdd(int num)
+{
+    std::unique_lock<mutex> ul(m);
+    for(int i =0 ; i<num;i++)
+    {
+     if((i%2)!=0)
+     {
+        cv.wait(ul,[] {return evenPrintingDone;});
+        cout<<"Printing ODD "<<i<<endl;
+        evenPrintingDone = false;
+        cv.notify_one();
+     }
+
+    }    
+}
+int main()
+{
+	thread t1(PrintEven,10);
+	thread t2(PrintOdd,10);
+	t1.join();
+	t2.join();
+	return 0;
+}

@@ -1,0 +1,72 @@
+#include <iostream>
+#include<mutex>
+#include<atomic>
+#include<thread>
+#include<condition_variable>
+#include<vector>
+#include<queue>
+using namespace std;
+
+int global;
+std::mutex m_lock;
+std::condition_variable is_full_cv;
+std::condition_variable is_empty_cv;
+std::queue<int> myq;
+int capacity = 5;
+
+bool isExit = false;
+
+void setExit()
+{
+    std::lock_guard<std::mutex> lg(m_lock);
+    isExit = true;
+}
+
+void Producer(int maxValue)
+{
+    while(1)
+    {
+        unique_lock<std::mutex> ulock(m_lock);
+        is_empty_cv.wait(ulock,[maxValue](){return (myq.size() <= capacity);});
+        if(global>= maxValue)
+        {
+            is_full_cv.notify_all();            
+            return;
+        }
+        std::cout<<"Producing "<<global<<endl;
+        myq.push(global);
+        global++;
+        is_full_cv.notify_all();
+    }
+}
+void Consumer(int maxValue)
+{
+    while(1)
+    {
+        unique_lock<std::mutex> ulock(m_lock);
+        is_full_cv.wait(ulock,[](){return (!myq.empty()) || (isExit);});
+        if(global>= maxValue && myq.size() == 0)
+        {
+            is_empty_cv.notify_all();            
+            return;
+        }
+        int myQdata = myq.front();
+        myq.pop();
+        std::cout<<"Consuming " << " "<<myQdata<<endl;
+        is_empty_cv.notify_all();
+    }
+}
+
+int main()
+{
+    int maxthread = thread::hardware_concurrency();
+    vector<thread> v1;
+    v1.emplace_back(Producer,20);
+    v1.emplace_back(Consumer,20);
+    setExit();
+    for(auto& myth : v1 )
+    {
+        myth.join();
+    }
+    return 0;
+}

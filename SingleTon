@@ -1,0 +1,62 @@
+#include <iostream>
+#include<mutex>
+#include<atomic>
+
+using namespace std;
+
+class Singleton
+{
+private:
+    Singleton()
+    {
+        
+    }
+public:
+    static atomic<Singleton*> m_instance;
+    static std::mutex m_lock;
+    
+    Singleton(const Singleton&) = delete;
+    Singleton& operator = (const Singleton& other) = delete;
+    
+    static Singleton* getInstance()
+    {
+        Singleton *temp = m_instance.load(std::memory_order_acquire);
+        if(temp == nullptr)
+        {
+            std::lock_guard<std::mutex> lg(m_lock);
+            std::cout<<"Initializing" << endl;
+            temp = m_instance.load(std::memory_order_relaxed);
+            if(temp == nullptr)
+            {
+                temp = new Singleton();
+                m_instance.store(temp,std::memory_order_release);
+            }
+        }
+        return temp;
+    }
+    static void Destroy()
+    {
+        std::lock_guard<std::mutex> lg(m_lock);        
+        if(m_instance)
+        {
+            delete m_instance;
+            m_instance = nullptr;
+        }
+    }
+    void print()
+    {
+        std::cout<<"Prinitng something" << endl;
+    }
+};
+atomic<Singleton*> Singleton::m_instance = nullptr;
+std::mutex Singleton::m_lock;
+int global;
+
+
+int main()
+{
+    Singleton::getInstance()->print();
+    Singleton::getInstance()->print();
+    Singleton::Destroy();
+    return 0;
+}
